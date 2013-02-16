@@ -13,6 +13,8 @@
 		03A88F9316D02B6700D869BF /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 03A88F9116D02B6700D869BF /* Credits.rtf */; };
 		03A88F9616D02B6700D869BF /* INSAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 03A88F9516D02B6700D869BF /* INSAppDelegate.m */; };
 		03A88F9916D02B6700D869BF /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 03A88F9716D02B6700D869BF /* MainMenu.xib */; };
+		03A88FA216D02B8000D869BF /* INSOCKSServer.m in Sources */ = {isa = PBXBuildFile; fileRef = 03A88FA116D02B8000D869BF /* INSOCKSServer.m */; };
+		03A88FA616D02C7500D869BF /* GCDAsyncSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = 03A88FA516D02C7500D869BF /* GCDAsyncSocket.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +31,10 @@
 		03A88F9416D02B6700D869BF /* INSAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = INSAppDelegate.h; sourceTree = "<group>"; };
 		03A88F9516D02B6700D869BF /* INSAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = INSAppDelegate.m; sourceTree = "<group>"; };
 		03A88F9816D02B6700D869BF /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		03A88FA016D02B8000D869BF /* INSOCKSServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = INSOCKSServer.h; path = Classes/INSOCKSServer.h; sourceTree = "<group>"; };
+		03A88FA116D02B8000D869BF /* INSOCKSServer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = INSOCKSServer.m; path = Classes/INSOCKSServer.m; sourceTree = "<group>"; };
+		03A88FA416D02C7500D869BF /* GCDAsyncSocket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GCDAsyncSocket.h; path = GCDAsyncSocket/GCDAsyncSocket.h; sourceTree = SOURCE_ROOT; };
+		03A88FA516D02C7500D869BF /* GCDAsyncSocket.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GCDAsyncSocket.m; path = GCDAsyncSocket/GCDAsyncSocket.m; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +88,8 @@
 		03A88F8816D02B6700D869BF /* INSOCKSServer */ = {
 			isa = PBXGroup;
 			children = (
+				03A88FA316D02BDA00D869BF /* GCDAsyncSocket */,
+				03A88F9F16D02B7200D869BF /* Classes */,
 				03A88F9416D02B6700D869BF /* INSAppDelegate.h */,
 				03A88F9516D02B6700D869BF /* INSAppDelegate.m */,
 				03A88F9716D02B6700D869BF /* MainMenu.xib */,
@@ -100,6 +108,24 @@
 				03A88F9116D02B6700D869BF /* Credits.rtf */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		03A88F9F16D02B7200D869BF /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				03A88FA016D02B8000D869BF /* INSOCKSServer.h */,
+				03A88FA116D02B8000D869BF /* INSOCKSServer.m */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		03A88FA316D02BDA00D869BF /* GCDAsyncSocket */ = {
+			isa = PBXGroup;
+			children = (
+				03A88FA416D02C7500D869BF /* GCDAsyncSocket.h */,
+				03A88FA516D02C7500D869BF /* GCDAsyncSocket.m */,
+			);
+			name = GCDAsyncSocket;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -169,6 +195,8 @@
 			files = (
 				03A88F8F16D02B6700D869BF /* main.m in Sources */,
 				03A88F9616D02B6700D869BF /* INSAppDelegate.m in Sources */,
+				03A88FA216D02B8000D869BF /* INSOCKSServer.m in Sources */,
+				03A88FA616D02C7500D869BF /* GCDAsyncSocket.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
