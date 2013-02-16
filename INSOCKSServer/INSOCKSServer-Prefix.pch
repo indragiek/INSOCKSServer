@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'INSOCKSServer' target in the 'INSOCKSServer' project
+//
+
+#ifdef __OBJC__
+	#import <Cocoa/Cocoa.h>
+#endif
