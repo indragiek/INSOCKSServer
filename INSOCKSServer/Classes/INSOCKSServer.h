@@ -55,6 +55,11 @@
 @end
 
 /**
+ Notification posted when the connection disconnects. userInfo contains error information where availalble.
+ */
+extern NSString* const INSOCKSConnectionDisconnectedNotification;
+
+/**
  Represents a single connection to the SOCKS5 server
  */
 @protocol INSOCKSConnectionDelegate;

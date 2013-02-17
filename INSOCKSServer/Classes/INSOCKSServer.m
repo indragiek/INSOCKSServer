@@ -53,8 +53,16 @@
 			if (error) *error = socketError;
 			return nil;
 		}
+		[[NSNotificationCenter defaultCenter] addObserverForName:INSOCKSConnectionDisconnectedNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
+			[_connections removeObject:note.object];
+		}];
 	}
 	return self;
+}
+
+- (void)dealloc
+{
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 #pragma mark - Accessors
@@ -201,6 +209,7 @@ typedef NS_ENUM(uint8_t, INSOCKS5AuthenticationMethod) {
 static NSString * const INSOCKS5ConnectionErrorDomain = @"INSOCKS5ConnectionErrorDomain";
 static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
+NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionDisconnectedNotification";
 
 @implementation INSOCKSConnection {
 	struct {
@@ -334,7 +343,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 - (void)readSOCKS5VersionFromData:(NSData *)data expectedLength:(NSUInteger)length
 {
 	void(^failureBlock)() = ^{
-		[self refuseConnectionWithErrorDescription:@"Invalid SOCKS protocol version."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Invalid SOCKS protocol version."];
 	};
 	if ([data length] == length) {
 		uint8_t version;
@@ -355,7 +364,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		[data getBytes:&_numberOfAuthenticationMethods length:length];
 		[_clientSocket readDataToLength:_numberOfAuthenticationMethods withTimeout:-1 tag:INSOCKS5HandshakePhaseAuthenticationMethod];
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Unable to retrieve number of authentication methods."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Unable to retrieve number of authentication methods."];
 	}
 }
 
@@ -374,11 +383,11 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		if (hasSupportedAuthMethod) {
 			[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseHeaderFragment];
 		} else {
-			[self refuseConnectionWithErrorDescription:@"No supported authentication method."];
+			[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"No supported authentication method."];
 		}
 		
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read authentication methods"];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read authentication methods"];
 	}
 }
 
@@ -390,7 +399,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		
 		uint8_t version = header[0];
 		if (version != INSOCKS5HandshakeVersion5) {
-			[self refuseConnectionWithErrorDescription:@"Invalid SOCKS protocol version."];
+			[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Invalid SOCKS protocol version."];
 			return;
 		}
 		
@@ -398,7 +407,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		// Third byte is just a reserved paramter (0x00);
 		[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseAddressType];
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read request header."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read request header."];
 	}
 }
 
@@ -420,12 +429,11 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 				[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseDomainNameLength];
 				break;
 			default:
-				[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyAddressTypeNotSupported];
-				[self notifySOCKS5HandshakeErrorWithDescription:@"Address type not supported"];
+				[self refuseConnectionWithReply:INSOCKS5HandshakeReplyAddressTypeNotSupported errorDescription:@"Address type not supported"];
 				break;
 		}
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read address type."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read address type."];
 	}
 }
 
@@ -439,7 +447,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		_targetHost = [NSString stringWithCString:inet_ntop(AF_INET, address, ip, sizeof(ip)) encoding:NSUTF8StringEncoding];
 		[self readDataForSOCKS5Tag:INSOCKS5RequestPhasePort];
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read IPv4 address."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read IPv4 address."];
 	}
 }
 
@@ -453,7 +461,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		_targetHost = [NSString stringWithCString:inet_ntop(AF_INET6, address, ip, sizeof(ip)) encoding:NSUTF8StringEncoding];
 		[self readDataForSOCKS5Tag:INSOCKS5RequestPhasePort];
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read IPv6 address."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read IPv6 address."];
 	}
 }
 
@@ -464,7 +472,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		[_addressData appendBytes:(void *)_domainNameLength length:length];
 		[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseDomainName];
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read domain name length."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read domain name length."];
 	}
 }
 
@@ -476,7 +484,7 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 		[_addressData appendBytes:domainName length:_domainNameLength];
 		_targetHost = [[NSString alloc] initWithBytes:domainName length:_domainNameLength encoding:NSUTF8StringEncoding];
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read domain name"];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read domain name"];
 	}
 }
 
@@ -498,32 +506,34 @@ static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 			case INSOCKS5CommandBind:
 			case INSOCKS5CommandUDPAssociate:
 				// TODO: Add support for port binding and UDP association
-				[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyCommandNotSupported];
-				[self notifySOCKS5HandshakeErrorWithDescription:@"Command type not supported."];
+				[self refuseConnectionWithReply:INSOCKS5HandshakeReplyCommandNotSupported errorDescription:@"Command type not supported."];
 				break;
 			default:
 				break;
 		}
 	} else {
-		[self refuseConnectionWithErrorDescription:@"Could not read port."];
+		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read port."];
 	}
 }
 
 #pragma mark - Private
 
-// Notifies delegate of an error during the SOCKS5 handshake and disconnects the socket
-- (void)notifySOCKS5HandshakeErrorWithDescription:(NSString *)description
+- (void)refuseConnectionWithReply:(INSOCKS5HandshakeReplyType)reply errorDescription:(NSString *)description
 {
-	if (!_delegateFlags.didEncounterErrorDuringSOCKS5Handshake || ![description length]) return;
-	NSError *error = [NSError errorWithDomain:INSOCKS5ConnectionErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : description}];
-	[self.delegate SOCKSConnection:self didEncounterErrorDuringSOCKS5Handshake:error];
+	if (![description length]) return;
+	[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyConnectionRefused];
 	[_clientSocket disconnectAfterReadingAndWriting];
+	NSError *error = [NSError errorWithDomain:INSOCKS5ConnectionErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : description}];
+	if (_delegateFlags.didEncounterErrorDuringSOCKS5Handshake) {
+		[self.delegate SOCKSConnection:self didEncounterErrorDuringSOCKS5Handshake:error];
+	}
+	[self postDisconnectedNotificationWithError:error];
 }
 
-- (void)refuseConnectionWithErrorDescription:(NSString *)description
+- (void)postDisconnectedNotificationWithError:(NSError *)error
 {
-	[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyConnectionRefused];
-	[self notifySOCKS5HandshakeErrorWithDescription:description];
+	NSDictionary *userInfo = [NSDictionary dictionaryWithObjectsAndKeys:error, @"error", nil];
+	[[NSNotificationCenter defaultCenter] postNotificationName:INSOCKSConnectionDisconnectedNotification object:self userInfo:userInfo];
 }
 
 + (NSData *)replyDataForResponseType:(INSOCKS5HandshakeReplyType)type
