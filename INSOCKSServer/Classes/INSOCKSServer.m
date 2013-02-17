@@ -371,7 +371,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 	}
 }
 
-- (void)socket:(GCDAsyncSocket *)sock didReadPartialDataOfLength:(NSUInteger)partialLength tag:(long)tag
+- (void)socket:(GCDAsyncSocket *)sock didWritePartialDataOfLength:(NSUInteger)partialLength tag:(long)tag
 {
 	if (sock == _clientSocket) {
 		unsigned long long sent = self.bytesSent;
