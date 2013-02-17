@@ -322,9 +322,12 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err
 {
-	if (_delegateFlags.didDisconnectWithError) {
-		[self.delegate SOCKSConnection:self didDisconnectWithError:err];
-	}
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		if (_delegateFlags.didDisconnectWithError) {
+			[self.delegate SOCKSConnection:self didDisconnectWithError:err];
+		}
+	});
 	[_clientSocket disconnectAfterReadingAndWriting];
 	[_targetSocket disconnectAfterReadingAndWriting];
 }
