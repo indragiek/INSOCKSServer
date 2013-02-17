@@ -32,10 +32,6 @@
 @interface INSOCKSServer : NSObject <GCDAsyncSocketDelegate>
 @property (nonatomic, assign) id<INSOCKSServerDelegate> delegate;
 /**
- The GCDAsyncSocket object representating the socket that connections are accepted on.
- */
-@property (nonatomic, strong, readonly) GCDAsyncSocket *socket;
-/**
  The listening port.
  */
 @property (nonatomic, readonly) uint16_t port;
@@ -64,14 +60,11 @@
 @protocol INSOCKSConnectionDelegate;
 @interface INSOCKSConnection : NSObject <GCDAsyncSocketDelegate>
 @property (nonatomic, assign) id<INSOCKSConnectionDelegate> delegate;
-/**
- Socket for reading and writing data.
- */
-@property (nonatomic, strong, readonly) GCDAsyncSocket *socket;
 @end
 
 @protocol INSOCKSConnectionDelegate <NSObject>
 @optional
 - (void)SOCKSConnection:(INSOCKSConnection *)connection didDisconnectWithError:(NSError *)error;
+- (void)SOCKSConnection:(INSOCKSConnection *)connection TCPConnectionDidFailWithError:(NSError *)error;
 - (void)SOCKSConnection:(INSOCKSConnection *)connection didEncounterErrorDuringSOCKS5Handshake:(NSError *)error;
 @end

@@ -31,6 +31,7 @@
 
 @implementation INSOCKSServer {
 	NSMutableArray *_connections;
+	GCDAsyncSocket *_socket;
 	struct {
 		unsigned int didAcceptConnection : 1;
 		unsigned int didDisconnectWithError : 1;
@@ -139,7 +140,7 @@ typedef NS_ENUM(uint8_t, INSOCKS5AddressType) {
 typedef NS_ENUM(uint8_t, INSOCKS5Command) {
 	INSOCKS5CommandConnect = 0x01,
 	INSOCKS5CommandBind = 0x02,
-	INSOCKS5UDPAssociate = 0x03
+	INSOCKS5CommandUDPAssociate = 0x03
 };
 
 /*
@@ -197,21 +198,25 @@ typedef NS_ENUM(uint8_t, INSOCKS5AuthenticationMethod) {
 	INSOCKS5AuthenticationUsernamePassword = 0x02
 };
 
-static NSTimeInterval const INSOCKS5SocketTimeout = 15.0;
 static NSString * const INSOCKS5ConnectionErrorDomain = @"INSOCKS5ConnectionErrorDomain";
 static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
+static NSUInteger const INSOCKS5SuccessfulReplyTag = 100;
 
 @implementation INSOCKSConnection {
 	struct {
 		unsigned int didDisconnectWithError : 1;
 		unsigned int didEncounterErrorDuringSOCKS5Handshake : 1;
+		unsigned int TCPConnectionDidFailWithError : 1;
 	} _delegateFlags;
+	GCDAsyncSocket *_clientSocket;
+	GCDAsyncSocket *_targetSocket;
 	uint8_t _numberOfAuthenticationMethods;
 	uint8_t _requestCommandCode;
 	NSMutableData *_addressData;
 	uint8_t _domainNameLength;
 	NSString *_targetHost;
 	NSUInteger _targetPort;
+	dispatch_queue_t _delegateQueue;
 }
 
 #pragma mark - Initialization
@@ -219,10 +224,12 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 - (id)initWithSocket:(GCDAsyncSocket *)socket
 {
 	if ((self = [super init])) {
-		_socket = socket;
-		[_socket setDelegate:self];
+		_clientSocket = socket;
+		_delegateQueue = dispatch_queue_create("com.indragie.INSOCKSConnection.DelegateQueue", DISPATCH_QUEUE_SERIAL);
+		[_clientSocket setDelegate:self delegateQueue:_delegateQueue];
 		// Begins the chain reaction that constitutes the SOCKS5 handshake
 		[self beginSOCKS5Handshake];
+		
 	}
 	return self;
 }
@@ -242,6 +249,7 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 		_delegate = delegate;
 		_delegateFlags.didDisconnectWithError = [delegate respondsToSelector:@selector(SOCKSConnection:didDisconnectWithError:)];
 		_delegateFlags.didEncounterErrorDuringSOCKS5Handshake = [delegate respondsToSelector:@selector(SOCKSConnection:didEncounterErrorDuringSOCKS5Handshake:)];
+		_delegateFlags.TCPConnectionDidFailWithError = [delegate respondsToSelector:@selector(SOCKSConnection:TCPConnectionDidFailWithError:)];
 	}
 }
 
@@ -252,6 +260,8 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 	if (_delegateFlags.didDisconnectWithError) {
 		[self.delegate SOCKSConnection:self didDisconnectWithError:err];
 	}
+	[_clientSocket disconnectAfterReadingAndWriting];
+	[_targetSocket disconnectAfterReadingAndWriting];
 }
 
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
@@ -289,8 +299,35 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 		case INSOCKS5RequestPhasePort:
 			[self readSOCKS5PortFromData:data expectedLength:length];
 			break;
-		default:
+		default: {
+			// If there's no particular tag, that means it is operating in proxy mode
+			if (sock == _clientSocket) {
+				[_targetSocket writeData:data withTimeout:-1 tag:0];
+			} else {
+				[_clientSocket writeData:data withTimeout:-1 tag:0];
+			}
+			[sock readDataWithTimeout:-1 tag:0];
 			break;
+		}
+	}
+}
+
+- (void)socket:(GCDAsyncSocket *)sock didWriteDataWithTag:(long)tag
+{
+	// Successfully sent the response to the client, now we can establish a connection
+	if (tag == INSOCKS5SuccessfulReplyTag) {
+		_targetSocket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:_delegateQueue];
+		NSError *error = nil;
+		if (![_targetSocket connectToHost:_targetHost onPort:_targetPort withTimeout:-1 error:&error]) {
+			if (_delegateFlags.TCPConnectionDidFailWithError) {
+				[self.delegate SOCKSConnection:self TCPConnectionDidFailWithError:error];
+			}
+			[_clientSocket disconnectAfterReadingAndWriting];
+		} else {
+			// Going into proxy mode now, start reading from both sockets and proxying data between them
+			[_clientSocket readDataWithTimeout:-1 tag:0];
+			[_targetSocket readDataWithTimeout:-1 tag:0];
+		}
 	}
 }
 
@@ -316,7 +353,7 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 {
 	if ([data length] == length) {
 		[data getBytes:&_numberOfAuthenticationMethods length:length];
-		[_socket readDataToLength:_numberOfAuthenticationMethods withTimeout:INSOCKS5SocketTimeout tag:INSOCKS5HandshakePhaseAuthenticationMethod];
+		[_clientSocket readDataToLength:_numberOfAuthenticationMethods withTimeout:-1 tag:INSOCKS5HandshakePhaseAuthenticationMethod];
 	} else {
 		[self refuseConnectionWithErrorDescription:@"Unable to retrieve number of authentication methods."];
 	}
@@ -383,6 +420,8 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 				[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseDomainNameLength];
 				break;
 			default:
+				[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyAddressTypeNotSupported];
+				[self notifySOCKS5HandshakeErrorWithDescription:@"Address type not supported"];
 				break;
 		}
 	} else {
@@ -448,6 +487,23 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 		[data getBytes:&port length:length];
 		[_addressData appendBytes:port length:length];
 		_targetPort = (port[0] << 8 | port[1]);
+		
+		switch (_requestCommandCode) {
+			case INSOCKS5CommandConnect: {
+				NSMutableData *responseData = [NSMutableData dataWithData:[self.class replyDataForResponseType:INSOCKS5HandshakeReplySucceeded]];
+				[responseData appendData:_addressData];
+				[_clientSocket writeData:responseData withTimeout:-1 tag:INSOCKS5SuccessfulReplyTag];
+				break;
+			}
+			case INSOCKS5CommandBind:
+			case INSOCKS5CommandUDPAssociate:
+				// TODO: Add support for port binding and UDP association
+				[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyCommandNotSupported];
+				[self notifySOCKS5HandshakeErrorWithDescription:@"Command type not supported."];
+				break;
+			default:
+				break;
+		}
 	} else {
 		[self refuseConnectionWithErrorDescription:@"Could not read port."];
 	}
@@ -461,12 +517,12 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 	if (!_delegateFlags.didEncounterErrorDuringSOCKS5Handshake || ![description length]) return;
 	NSError *error = [NSError errorWithDomain:INSOCKS5ConnectionErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : description}];
 	[self.delegate SOCKSConnection:self didEncounterErrorDuringSOCKS5Handshake:error];
-	[_socket disconnectAfterWriting];
+	[_clientSocket disconnectAfterReadingAndWriting];
 }
 
 - (void)refuseConnectionWithErrorDescription:(NSString *)description
 {
-	[self sendSOCKSHandshakeConnectionRefusedResponse];
+	[self sendSOCKS5HandshakeResponseWithType:INSOCKS5HandshakeReplyConnectionRefused];
 	[self notifySOCKS5HandshakeErrorWithDescription:description];
 }
 
@@ -476,14 +532,9 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 	return [NSData dataWithBytes:bytes length:3];
 }
 
-- (void)sendSOCKS5HandshakeSucceededResponse
+- (void)sendSOCKS5HandshakeResponseWithType:(INSOCKS5HandshakeReplyType)type
 {
-	[_socket writeData:[self.class replyDataForResponseType:INSOCKS5HandshakeReplySucceeded] withTimeout:INSOCKS5SocketTimeout tag:0];
-}
-
-- (void)sendSOCKSHandshakeConnectionRefusedResponse
-{
-	[_socket writeData:[self.class replyDataForResponseType:INSOCKS5HandshakeReplyConnectionRefused] withTimeout:INSOCKS5SocketTimeout tag:0];
+	[_clientSocket writeData:[self.class replyDataForResponseType:type] withTimeout:-1 tag:0];
 }
 
 + (NSUInteger)dataLengthForSOCKS5Tag:(NSUInteger)tag
@@ -512,7 +563,7 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 {
 	NSUInteger dataLength = [self.class dataLengthForSOCKS5Tag:tag];
 	if (dataLength) {
-		[_socket readDataToLength:dataLength withTimeout:INSOCKS5SocketTimeout tag:tag];
+		[_clientSocket readDataToLength:dataLength withTimeout:-1 tag:tag];
 	}
 }
 @end
