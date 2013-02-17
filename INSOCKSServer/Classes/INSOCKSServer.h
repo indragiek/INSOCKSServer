@@ -92,4 +92,7 @@ extern NSString* const INSOCKSConnectionDisconnectedNotification;
 - (void)SOCKSConnection:(INSOCKSConnection *)connection didDisconnectWithError:(NSError *)error;
 - (void)SOCKSConnection:(INSOCKSConnection *)connection TCPConnectionDidFailWithError:(NSError *)error;
 - (void)SOCKSConnection:(INSOCKSConnection *)connection didEncounterErrorDuringSOCKS5Handshake:(NSError *)error;
+
+- (void)SOCKSConnectionHandshakeSucceeded:(INSOCKSConnection *)connection;
+- (void)SOCKSConnection:(INSOCKSConnection *)connection didConnectToHost:(NSString *)host port:(uint16_t)port;
 @end

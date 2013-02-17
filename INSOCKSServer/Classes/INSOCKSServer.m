@@ -223,6 +223,8 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		unsigned int didDisconnectWithError : 1;
 		unsigned int didEncounterErrorDuringSOCKS5Handshake : 1;
 		unsigned int TCPConnectionDidFailWithError : 1;
+		unsigned int handshakeSucceeded : 1;
+		unsigned int didConnectToHost : 1;
 	} _delegateFlags;
 	GCDAsyncSocket *_clientSocket;
 	GCDAsyncSocket *_targetSocket;
@@ -266,6 +268,8 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		_delegateFlags.didDisconnectWithError = [delegate respondsToSelector:@selector(SOCKSConnection:didDisconnectWithError:)];
 		_delegateFlags.didEncounterErrorDuringSOCKS5Handshake = [delegate respondsToSelector:@selector(SOCKSConnection:didEncounterErrorDuringSOCKS5Handshake:)];
 		_delegateFlags.TCPConnectionDidFailWithError = [delegate respondsToSelector:@selector(SOCKSConnection:TCPConnectionDidFailWithError:)];
+		_delegateFlags.handshakeSucceeded = [delegate respondsToSelector:@selector(SOCKSConnectionHandshakeSucceeded:)];
+		_delegateFlags.didConnectToHost = [delegate respondsToSelector:@selector(SOCKSConnection:didConnectToHost:port:)];
 	}
 }
 
@@ -342,6 +346,9 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 {
 	// Successfully sent the response to the client, now we can establish a connection
 	if (tag == INSOCKS5SuccessfulReplyTag) {
+		if (_delegateFlags.handshakeSucceeded) {
+			[self.delegate SOCKSConnectionHandshakeSucceeded:self];
+		}
 		_targetSocket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:_delegateQueue];
 		NSError *error = nil;
 		if (![_targetSocket connectToHost:_targetHost onPort:_targetPort withTimeout:-1 error:&error]) {
@@ -354,6 +361,13 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 			[_clientSocket readDataWithTimeout:-1 tag:0];
 			[_targetSocket readDataWithTimeout:-1 tag:0];
 		}
+	}
+}
+
+- (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port
+{
+	if (sock == _targetSocket && _delegateFlags.didConnectToHost) {
+		[self.delegate SOCKSConnection:self didConnectToHost:host port:port];
 	}
 }
 
