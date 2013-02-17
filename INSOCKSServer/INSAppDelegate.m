@@ -46,12 +46,25 @@
 	}];
 	return address;
 }
+
+- (void)updateByteCount
+{;
+	[self.sentField setObjectValue:[_server.connections valueForKeyPath:@"@sum.bytesSent"]];
+	[self.receivedField setObjectValue:[_server.connections valueForKeyPath:@"@sum.bytesReceived"]];
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+{
+	[self updateByteCount];
+}
+
 #pragma mark - INSOCKSServerDelegate
 
 - (void)SOCKSServer:(INSOCKSServer *)server didAcceptConnection:(INSOCKSConnection *)connection
 {
 	NSLog(@"SOCKS server accepted connection: %@", connection);
-	self.activeConnection = connection;
+	[connection addObserver:self forKeyPath:@"bytesSent" options:NSKeyValueObservingOptionNew context:NULL];
+	[connection addObserver:self forKeyPath:@"bytesReceived" options:NSKeyValueObservingOptionNew context:NULL];
 	connection.delegate = self;
 }
 
@@ -64,6 +77,8 @@
 
 - (void)SOCKSConnection:(INSOCKSConnection *)connection didDisconnectWithError:(NSError *)error
 {
+	[connection removeObserver:self forKeyPath:@"bytesSent"];
+	[connection removeObserver:self forKeyPath:@"bytesReceived"];
 	NSLog(@"SOCKS connection %@ disconnected with error: %@, %@", self, error, error.userInfo);
 }
 

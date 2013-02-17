@@ -353,8 +353,10 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 			// If there's no particular tag, that means it is operating in proxy mode
 			if (sock == _clientSocket) {
 				[_targetSocket writeData:data withTimeout:-1 tag:0];
+				[self incrementBytesSentBy:[data length]];
 			} else {
 				[_clientSocket writeData:data withTimeout:-1 tag:0];
+				[self incrementBytesReceivedBy:[data length]];
 			}
 			[sock readDataWithTimeout:-1 tag:0];
 			break;
@@ -387,23 +389,24 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 	}
 }
 
+- (void)incrementBytesSentBy:(unsigned long long)length
+{
+	unsigned long long sent = self.bytesSent;
+	sent += length;
+	self.bytesSent = sent;
+}
+
+- (void)incrementBytesReceivedBy:(unsigned long long)length
+{
+	unsigned long long received = self.bytesReceived;
+	received += length;
+	self.bytesReceived = received;
+}
+
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port
 {
 	if (sock == _targetSocket && _delegateFlags.didConnectToHost) {
 		[self.delegate SOCKSConnection:self didConnectToHost:host port:port];
-	}
-}
-
-- (void)socket:(GCDAsyncSocket *)sock didWritePartialDataOfLength:(NSUInteger)partialLength tag:(long)tag
-{
-	if (sock == _clientSocket) {
-		unsigned long long sent = self.bytesSent;
-		sent += partialLength;
-		self.bytesSent = sent;
-	} else {
-		unsigned long long received = self.bytesReceived;
-		received += partialLength;
-		self.bytesReceived = received;
 	}
 }
 
