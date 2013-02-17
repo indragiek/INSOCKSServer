@@ -14,6 +14,7 @@
 
 - (IBAction)startServer:(id)sender
 {
+	if (_server) return;
 	NSError *error = nil;
 	// Start the server on a random port
 	_server = [[INSOCKSServer alloc] initWithPort:51621 error:&error];
@@ -29,6 +30,7 @@
 
 - (IBAction)stopServer:(id)sender
 {
+	if (!_server) return;
 	[_server disconnectAll];
 	_server = nil;
 	self.statusField.stringValue = @"Not Connected";
