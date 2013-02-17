@@ -84,25 +84,97 @@
 }
 @end
 
+/* +----+----------+----------+
+ |VER | NMETHODS | METHODS  |
+ +----+----------+----------+
+ | 1  |    1     | 1 to 255 |
+ +----+----------+----------+ */
+
 typedef NS_ENUM(NSInteger, INSOCKS5HandshakePhase) {
 	INSOCKS5HandshakePhaseVersion = 0,
 	INSOCKS5HandshakePhaseNumberOfAuthenticationMethods,
 	INSOCKS5HandshakePhaseAuthenticationMethod,
-	INSOCKS5HandshakePhaseRequest,
-	INSOCKS5HandshakePhaseProxy
 };
 
-typedef NS_ENUM(uint8_t, INSOCKS5HandshakeReply) {
-	INSOCKS5HandshakeSucceeded = 0x00,
-	INSOCKS5HandshakeGeneralSOCKSServerFailure = 0x01,
-	INSOCKS5HandshakeConnectionNotAllowedByRuleset = 0x02,
-	INSOCKS5HandshakeNetworkUnreachable = 0x03,
-	INSOCKS5HandshakeHostUnreachable = 0x04,
-	INSOCKS5HandshakeConnectionRefused = 0x05,
-	INSOCKS5HandshakeTTLExpired = 0x06,
-	INSOCKS5HandshakeCommandNotSupported = 0x07,
-	INSOCKS5HandshakeAddressTypeNotSupported = 0x08
+/*
+ +----+-----+-------+------+----------+----------+
+ |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
+ +----+-----+-------+------+----------+----------+
+ | 1  |  1  | X'00' |  1   | Variable |    2     |
+ +----+-----+-------+------+----------+----------+
+ 
+ o  VER    protocol version: X'05'
+ o  CMD
+	o  CONNECT X'01'
+	o  BIND X'02'
+	o  UDP ASSOCIATE X'03'
+ o  RSV    RESERVED
+ o  ATYP   address type of following address
+	o  IP V4 address: X'01'
+	o  DOMAINNAME: X'03'
+	o  IP V6 address: X'04'
+ o  DST.ADDR       desired destination address
+ o  DST.PORT desired destination port in network octet
+ order 
+ */
+
+typedef NS_ENUM(NSInteger, INSOCKS5RequestPhase) {
+	INSOCKS5RequestPhaseHeaderFragment = 10,
+	INSOCKS5RequestPhaseAddressType,
+	INSOCKS5RequestPhaseIPv4Address,
+	INSOCKS5RequestPhaseIPv6Address,
+	INSOCKS5RequestPhaseDomainName,
+	INSOCKS5RequestPhasePort
 };
+
+/*
+ +----+-----+-------+------+----------+----------+
+ |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
+ +----+-----+-------+------+----------+----------+
+ | 1  |  1  | X'00' |  1   | Variable |    2     |
+ +----+-----+-------+------+----------+----------+
+ 
+ o  VER    protocol version: X'05'
+ o  REP    Reply field:
+	o  X'00' succeeded
+	o  X'01' general SOCKS server failure
+	o  X'02' connection not allowed by ruleset
+	o  X'03' Network unreachable
+	o  X'04' Host unreachable
+	o  X'05' Connection refused
+	o  X'06' TTL expired
+	o  X'07' Command not supported
+	o  X'08' Address type not supported
+	o  X'09' to X'FF' unassigned
+	o  RSV    RESERVED
+ o  ATYP   address type of following address
+	o  IP V4 address: X'01'
+	o  DOMAINNAME: X'03'
+	o  IP V6 address: X'04'
+ o  BND.ADDR       server bound address
+ o  BND.PORT       server bound port in network octet order
+ */
+
+typedef NS_ENUM(uint8_t, INSOCKS5HandshakeReplyType) {
+	INSOCKS5HandshakeReplySucceeded = 0x00,
+	INSOCKS5HandshakeReplyGeneralSOCKSServerFailure = 0x01,
+	INSOCKS5HandshakeReplyConnectionNotAllowedByRuleset = 0x02,
+	INSOCKS5HandshakeReplyNetworkUnreachable = 0x03,
+	INSOCKS5HandshakeReplyHostUnreachable = 0x04,
+	INSOCKS5HandshakeReplyConnectionRefused = 0x05,
+	INSOCKS5HandshakeReplyTTLExpired = 0x06,
+	INSOCKS5HandshakeReplyCommandNotSupported = 0x07,
+	INSOCKS5HandshakeReplyAddressTypeNotSupported = 0x08
+};
+
+/*
+ o  X'00' NO AUTHENTICATION REQUIRED
+ o  X'01' GSSAPI
+ o  X'02' USERNAME/PASSWORD
+ o  X'03' to X'7F' IANA ASSIGNED
+ o  X'80' to X'FE' RESERVED FOR PRIVATE METHODS
+ o  X'FF' NO ACCEPTABLE METHODS
+ */
 
 typedef NS_ENUM(uint8_t, INSOCKS5AuthenticationMethod) {
 	INSOCKS5AuthenticationNone = 0x00,
@@ -165,18 +237,33 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
 {
 	switch (tag) {
-		case INSOCKS5HandshakePhaseVersion: {
+		case INSOCKS5HandshakePhaseVersion:
 			[self readSOCKS5VersionFromData:data];
 			break;
-		}
-		case INSOCKS5HandshakePhaseNumberOfAuthenticationMethods: {
+		case INSOCKS5HandshakePhaseNumberOfAuthenticationMethods:
 			[self readSOCKS5NumberOfAuthenticationMethodsFromData:data];
 			break;
-		}
-		case INSOCKS5HandshakePhaseAuthenticationMethod: {
+		case INSOCKS5HandshakePhaseAuthenticationMethod:
 			[self readSOCKS5AuthenticationMethodsFromData:data];
 			break;
-		}
+		case INSOCKS5RequestPhaseHeaderFragment:
+			[self readSOCKS5HeaderFragmentFromData:data];
+			break;
+		case INSOCKS5RequestPhaseAddressType:
+			[self readSOCKS5AddressTypeFromData:data];
+			break;
+		case INSOCKS5RequestPhaseIPv4Address:
+			[self readSOCKS5IPv4AddressFromData:data];
+			break;
+		case INSOCKS5RequestPhaseIPv6Address:
+			[self readSOCKS5IPv6AddressFromData:data];
+			break;
+		case INSOCKS5RequestPhaseDomainName:
+			[self readSOCKS5DomainNameFromData:data];
+			break;
+		case INSOCKS5RequestPhasePort:
+			[self readSOCKS5PortFromData:data];
+			break;
 		default:
 			break;
 	}
@@ -214,7 +301,7 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 		}
 		if (hasSupportedAuthMethod) {
 			[self sendSOCKS5HandshakeSucceededResponse];
-			[_socket readDataToLength:3 withTimeout:INSOCKS5SocketTimeout tag:INSOCKS5HandshakePhaseRequest];
+			[_socket readDataToLength:3 withTimeout:INSOCKS5SocketTimeout tag:INSOCKS5RequestPhaseHeaderFragment];
 		} else {
 			[self sendSOCKSHandshakeCommandNotSupportedResponse];
 			[self notifySOCKS5HandshakeErrorWithDescription:@"No supported authentication method."];
@@ -226,6 +313,35 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 	}
 }
 
+- (void)readSOCKS5HeaderFragmentFromData:(NSData *)data
+{
+	
+}
+
+- (void)readSOCKS5AddressTypeFromData:(NSData *)data
+{
+	
+}
+
+- (void)readSOCKS5IPv4AddressFromData:(NSData *)data
+{
+	
+}
+
+- (void)readSOCKS5IPv6AddressFromData:(NSData *)data
+{
+	
+}
+
+- (void)readSOCKS5DomainNameFromData:(NSData *)data
+{
+	
+}
+
+- (void)readSOCKS5PortFromData:(NSData *)data
+{
+	
+}
 #pragma mark - Private
 
 // Notifies delegate of an error during the SOCKS5 handshake and disconnects the socket
@@ -237,15 +353,19 @@ static uint8_t const INSOCKS5HandshakeVersion5 = 0x05;
 	[_socket disconnectAfterWriting];
 }
 
++ (NSData *)replyDataForResponseType:(INSOCKS5HandshakeReplyType)type
+{
+	const unsigned char bytes[3] = {0x05, type, 0x00};
+	return [NSData dataWithBytes:bytes length:3];
+}
+
 - (void)sendSOCKS5HandshakeSucceededResponse
 {
-	static const unsigned char bytes[1] = {INSOCKS5HandshakeSucceeded};
-	[_socket writeData:[NSData dataWithBytes:bytes length:1] withTimeout:INSOCKS5SocketTimeout tag:0];
+	[_socket writeData:[self.class replyDataForResponseType:INSOCKS5HandshakeReplySucceeded] withTimeout:INSOCKS5SocketTimeout tag:0];
 }
 
 - (void)sendSOCKSHandshakeCommandNotSupportedResponse
 {
-	static const unsigned char bytes[2] = {INSOCKS5HandshakeConnectionRefused, INSOCKS5HandshakeCommandNotSupported};
-	[_socket writeData:[NSData dataWithBytes:bytes length:2] withTimeout:INSOCKS5SocketTimeout tag:0];
+	[_socket writeData:[self.class replyDataForResponseType:INSOCKS5HandshakeReplyConnectionRefused] withTimeout:INSOCKS5SocketTimeout tag:0];
 }
 @end
