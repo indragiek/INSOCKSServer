@@ -50,6 +50,11 @@
  @return An instance of INSOCKSServer if the socket was successfully created or nil if there was an error
  */
 - (instancetype)initWithPort:(uint16_t)port error:(NSError **)error;
+
+/**
+ Disconnects all connections
+ */
+- (void)disconnectAll;
 @end
 
 @protocol INSOCKSServerDelegate <NSObject>
@@ -85,6 +90,10 @@ extern NSString* const INSOCKSConnectionDisconnectedNotification;
  The target host port. Returns 0 if no connection has been made.
  */
 @property (nonatomic, assign, readonly) uint16_t targetPort;
+/**
+ Disconnects the connection 
+ */
+- (void)disconnect;
 @end
 
 @protocol INSOCKSConnectionDelegate <NSObject>

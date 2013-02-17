@@ -7,9 +7,16 @@
 //
 
 #import <Cocoa/Cocoa.h>
+#import "INSOCKSServer.h"
 
-@interface INSAppDelegate : NSObject <NSApplicationDelegate>
+@interface INSAppDelegate : NSObject <NSApplicationDelegate, INSOCKSConnectionDelegate, INSOCKSServerDelegate>
 
 @property (assign) IBOutlet NSWindow *window;
-
+@property (nonatomic, weak) IBOutlet NSTextField *sentField;
+@property (nonatomic, weak) IBOutlet NSTextField *receivedField;
+@property (nonatomic, weak) IBOutlet NSTextField *statusField;
+@property (nonatomic, weak) IBOutlet NSTextField *informativeTextField;
+@property (nonatomic, retain) INSOCKSConnection *activeConnection;
+- (IBAction)startServer:(id)sender;
+- (IBAction)stopServer:(id)sender;
 @end

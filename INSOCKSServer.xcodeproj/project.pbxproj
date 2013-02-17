@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0314405416D16A6500E7888F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0314405316D16A6500E7888F /* Security.framework */; };
 		03A88F8316D02B6700D869BF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03A88F8216D02B6700D869BF /* Cocoa.framework */; };
 		03A88F8D16D02B6700D869BF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 03A88F8B16D02B6700D869BF /* InfoPlist.strings */; };
 		03A88F8F16D02B6700D869BF /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 03A88F8E16D02B6700D869BF /* main.m */; };
@@ -18,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0314405316D16A6500E7888F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		03A88F7F16D02B6700D869BF /* INSOCKSServer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = INSOCKSServer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		03A88F8216D02B6700D869BF /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		03A88F8516D02B6700D869BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -42,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0314405416D16A6500E7888F /* Security.framework in Frameworks */,
 				03A88F8316D02B6700D869BF /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -52,6 +55,7 @@
 		03A88F7616D02B6700D869BF = {
 			isa = PBXGroup;
 			children = (
+				0314405316D16A6500E7888F /* Security.framework */,
 				03A88F8816D02B6700D869BF /* INSOCKSServer */,
 				03A88F8116D02B6700D869BF /* Frameworks */,
 				03A88F8016D02B6700D869BF /* Products */,
@@ -332,6 +336,7 @@
 				03A88F9E16D02B6700D869BF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
