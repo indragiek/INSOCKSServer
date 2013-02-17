@@ -78,6 +78,11 @@
 	}
 }
 
+- (NSString *)host
+{
+	return [_socket localHost];
+}
+
 #pragma mark - GCDAsyncSocketDelegate
 
 - (void)socket:(GCDAsyncSocket *)sock didAcceptNewSocket:(GCDAsyncSocket *)newSocket
@@ -262,6 +267,16 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		_delegateFlags.didEncounterErrorDuringSOCKS5Handshake = [delegate respondsToSelector:@selector(SOCKSConnection:didEncounterErrorDuringSOCKS5Handshake:)];
 		_delegateFlags.TCPConnectionDidFailWithError = [delegate respondsToSelector:@selector(SOCKSConnection:TCPConnectionDidFailWithError:)];
 	}
+}
+
+- (NSString *)targetHost
+{
+	return [_targetSocket connectedHost];
+}
+
+- (uint16_t)targetPort
+{
+	return [_targetSocket connectedPort];
 }
 
 #pragma mark - GCDAsyncSocketDelegate

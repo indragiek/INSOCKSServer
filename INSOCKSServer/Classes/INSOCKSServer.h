@@ -35,6 +35,10 @@
  The listening port.
  */
 @property (nonatomic, readonly) uint16_t port;
+/*
+ The listening host
+ */
+@property (nonatomic, readonly) NSString *host;
 /**
  Array of INSOCKSConnection objects representing active connections to the proxy.
  */
@@ -73,6 +77,14 @@ extern NSString* const INSOCKSConnectionDisconnectedNotification;
  The number of bytes received from target to client over the connection's lifetime. KVO observable
  */
 @property (nonatomic, assign, readonly) unsigned long long bytesReceived;
+/**
+ The target host name. Returns nil if no connection has been made
+ */
+@property (nonatomic, strong, readonly) NSString *targetHost;
+/**
+ The target host port. Returns 0 if no connection has been made.
+ */
+@property (nonatomic, assign, readonly) uint16_t targetPort;
 @end
 
 @protocol INSOCKSConnectionDelegate <NSObject>
