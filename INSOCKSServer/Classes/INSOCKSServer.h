@@ -65,6 +65,14 @@ extern NSString* const INSOCKSConnectionDisconnectedNotification;
 @protocol INSOCKSConnectionDelegate;
 @interface INSOCKSConnection : NSObject <GCDAsyncSocketDelegate>
 @property (nonatomic, assign) id<INSOCKSConnectionDelegate> delegate;
+/**
+ The number of bytes sent from client to target over the connection's lifetime. KVO observable
+ */
+@property (nonatomic, assign, readonly) unsigned long long bytesSent;
+/**
+ The number of bytes received from target to client over the connection's lifetime. KVO observable
+ */
+@property (nonatomic, assign, readonly) unsigned long long bytesReceived;
 @end
 
 @protocol INSOCKSConnectionDelegate <NSObject>

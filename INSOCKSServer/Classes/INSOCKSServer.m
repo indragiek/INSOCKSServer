@@ -27,6 +27,8 @@
 
 @interface INSOCKSConnection ()
 - (id)initWithSocket:(GCDAsyncSocket *)socket;
+@property (nonatomic, assign, readwrite) unsigned long long bytesSent;
+@property (nonatomic, assign, readwrite) unsigned long long bytesReceived;
 @end
 
 @implementation INSOCKSServer {
@@ -337,6 +339,19 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 			[_clientSocket readDataWithTimeout:-1 tag:0];
 			[_targetSocket readDataWithTimeout:-1 tag:0];
 		}
+	}
+}
+
+- (void)socket:(GCDAsyncSocket *)sock didReadPartialDataOfLength:(NSUInteger)partialLength tag:(long)tag
+{
+	if (sock == _clientSocket) {
+		unsigned long long sent = self.bytesSent;
+		sent += partialLength;
+		self.bytesSent = sent;
+	} else {
+		unsigned long long received = self.bytesReceived;
+		received += partialLength;
+		self.bytesReceived = received;
 	}
 }
 
