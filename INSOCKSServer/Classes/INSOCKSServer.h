@@ -24,6 +24,9 @@
 #import <Foundation/Foundation.h>
 #import "GCDAsyncSocket.h"
 
+// Uncomment to enable debug logging
+// #define SOCKS_DEBUG_LOGGING
+
 @class INSOCKSConnection;
 @protocol INSOCKSServerDelegate;
 /**

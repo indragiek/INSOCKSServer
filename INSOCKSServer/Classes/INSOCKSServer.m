@@ -123,7 +123,7 @@
  +----+----------+----------+ */
 
 typedef NS_ENUM(NSInteger, INSOCKS5HandshakePhase) {
-	INSOCKS5HandshakePhaseVersion = 0,
+	INSOCKS5HandshakePhaseVersion = 5,
 	INSOCKS5HandshakePhaseNumberOfAuthenticationMethods,
 	INSOCKS5HandshakePhaseAuthenticationMethod,
 };
@@ -268,7 +268,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 
 - (void)beginSOCKS5Handshake
 {
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 	NSLog(@"Beginning SOCKS5 handshake by requesting version.");
 #endif
 	[self readDataForSOCKS5Tag:INSOCKS5HandshakePhaseVersion];
@@ -318,7 +318,6 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
 {
 	NSUInteger length = [self.class dataLengthForSOCKS5Tag:tag];
-	if (!length) return;
 	switch (tag) {
 		case INSOCKS5HandshakePhaseVersion:
 			[self readSOCKS5VersionFromData:data expectedLength:length];
@@ -367,7 +366,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 {
 	// Successfully sent the response to the client, now we can establish a connection
 	if (tag == INSOCKS5SuccessfulReplyTag) {
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"Successfully sent server response to SOCKS client");
 #endif
 		if (_delegateFlags.handshakeSucceeded) {
@@ -416,7 +415,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 	if ([data length] == length) {
 		uint8_t version;
 		[data getBytes:&version length:length];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"Received SOCKS protocol version: %d", version);
 #endif
 		if (version == INSOCKS5HandshakeVersion5) { // SOCKS Protocol Version 5
@@ -433,7 +432,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 {
 	if ([data length] == length) {
 		[data getBytes:&_numberOfAuthenticationMethods length:length];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client has %d authentication methods", _numberOfAuthenticationMethods);
 #endif
 		[_clientSocket readDataToLength:_numberOfAuthenticationMethods withTimeout:-1 tag:INSOCKS5HandshakePhaseAuthenticationMethod];
@@ -446,11 +445,15 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 {
 	uint8_t authMethods[_numberOfAuthenticationMethods];
 	if ([data length] == sizeof(authMethods)) {
+		[data getBytes:&authMethods length:_numberOfAuthenticationMethods];
 		BOOL hasSupportedAuthMethod = NO;
 		// TODO: Add support for username/password authentication as well
 		for (int i = 0; i < sizeof(authMethods); i++) {
+#ifdef SOCKS_DEBUG_LOGGING
+			NSLog(@"SOCKS client has authentication method: %d", authMethods[i]);
+#endif
 			if (authMethods[i] == INSOCKS5AuthenticationNone) {
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 				NSLog(@"Selecting anonymous authentication.");
 #endif
 				hasSupportedAuthMethod = YES;
@@ -458,6 +461,16 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 			}
 		}
 		if (hasSupportedAuthMethod) {
+			/*
+			 +----+--------+
+			 |VER | METHOD |
+			 +----+--------+
+			 | 1  |   1    |
+			 +----+--------+
+			 */
+			NSData *methodSelection = [NSData dataWithBytes:"\x05\x00" length:2];
+			// Inform the client of our authentication method selection
+			[_clientSocket writeData:methodSelection withTimeout:-1 tag:0];
 			[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseHeaderFragment];
 		} else {
 			[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"No supported authentication method."];
@@ -475,7 +488,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		[data getBytes:&header length:length];
 		
 		uint8_t version = header[0];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS protocol version from request header: %d", version);
 #endif
 		if (version != INSOCKS5HandshakeVersion5) {
@@ -484,7 +497,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		}
 		
 		_requestCommandCode = header[1];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS command code from request header: %d", _requestCommandCode);
 #endif
 		// Third byte is just a reserved paramter (0x00);
@@ -500,7 +513,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		_addressData = [NSMutableData dataWithData:data];
 		uint8_t addressType;
 		[data getBytes:&addressType length:length];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client address type: %d", addressType);
 #endif
 		switch (addressType) {
@@ -530,7 +543,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		[_addressData appendBytes:address length:length];
 		char ip[INET_ADDRSTRLEN];
 		_targetHost = [NSString stringWithCString:inet_ntop(AF_INET, address, ip, sizeof(ip)) encoding:NSUTF8StringEncoding];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client target host name: %@", _targetHost);
 #endif
 		[self readDataForSOCKS5Tag:INSOCKS5RequestPhasePort];
@@ -547,7 +560,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		[_addressData appendBytes:address length:length];
 		char ip[INET6_ADDRSTRLEN];
 		_targetHost = [NSString stringWithCString:inet_ntop(AF_INET6, address, ip, sizeof(ip)) encoding:NSUTF8StringEncoding];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client target host name: %@", _targetHost);
 #endif
 		[self readDataForSOCKS5Tag:INSOCKS5RequestPhasePort];
@@ -560,11 +573,11 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 {
 	if ([data length] == length) {
 		[data getBytes:&_domainNameLength length:length];
-		[_addressData appendBytes:(void *)_domainNameLength length:length];
-#ifdef DEBUG
+		[_addressData appendBytes:&_domainNameLength length:length];
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client domain name length: %d", _domainNameLength);
 #endif
-		[self readDataForSOCKS5Tag:INSOCKS5RequestPhaseDomainName];
+		[_clientSocket readDataToLength:_domainNameLength withTimeout:-1 tag:INSOCKS5RequestPhaseDomainName];
 	} else {
 		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read domain name length."];
 	}
@@ -577,9 +590,10 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		[data getBytes:&domainName length:_domainNameLength];
 		[_addressData appendBytes:domainName length:_domainNameLength];
 		_targetHost = [[NSString alloc] initWithBytes:domainName length:_domainNameLength encoding:NSUTF8StringEncoding];
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client target host name: %@", _targetHost);
 #endif
+		[self readDataForSOCKS5Tag:INSOCKS5RequestPhasePort];
 	} else {
 		[self refuseConnectionWithReply:INSOCKS5HandshakeReplyConnectionRefused errorDescription:@"Could not read domain name"];
 	}
@@ -592,7 +606,7 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 		[data getBytes:&port length:length];
 		[_addressData appendBytes:port length:length];
 		_targetPort = (port[0] << 8 | port[1]);
-#ifdef DEBUG
+#ifdef SOCKS_DEBUG_LOGGING
 		NSLog(@"SOCKS client target port: %lu", _targetPort);
 #endif
 		

@@ -16,7 +16,7 @@
 {
 	NSError *error = nil;
 	// Start the server on a random port
-	_server = [[INSOCKSServer alloc] initWithPort:0 error:&error];
+	_server = [[INSOCKSServer alloc] initWithPort:51621 error:&error];
 	_server.delegate = self;
 	if (error) {
 		NSLog(@"Error starting server: %@, %@", error, error.userInfo);
