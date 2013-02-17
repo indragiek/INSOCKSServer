@@ -5,8 +5,8 @@ Implements a proxy server using version 5 of the SOCKS protocol as defined in [R
 
 ### TODO
 
-* [GSSAPI](http://tools.ietf.org/html/draft-ietf-aft-gssapi-02) Authentication)
-* [Username/Password](http://www.ietf.org/rfc/rfc1929.txt) Authentication)
+* [GSSAPI](http://tools.ietf.org/html/draft-ietf-aft-gssapi-02) Authentication
+* [Username/Password](http://www.ietf.org/rfc/rfc1929.txt) Authentication
 * Port binding command 
 * UDP association command
 
