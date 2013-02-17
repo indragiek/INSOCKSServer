@@ -66,6 +66,13 @@
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
+#pragma mark - NSObject
+
+- (NSString *)description
+{
+	return [NSString stringWithFormat:@"<%@:%p host:%@ port:%d>", NSStringFromClass(self.class), self, self.host, self.port];
+}
+
 #pragma mark - Public
 
 - (void)disconnectAll
@@ -278,6 +285,13 @@ NSString* const INSOCKSConnectionDisconnectedNotification = @"INSOCKSConnectionD
 {
 	[_targetSocket disconnect];
 	[_clientSocket disconnect];
+}
+
+#pragma mark - NSObject
+
+- (NSString *)description
+{
+	return [NSString stringWithFormat:@"<%@:%p host:%@ port:%d bytesSent:%llu bytesReceived:%llu>", NSStringFromClass(self.class), self, self.targetHost, self.targetPort, self.bytesSent, self.bytesReceived];
 }
 
 #pragma mark - Accessors
