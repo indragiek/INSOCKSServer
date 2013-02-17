@@ -64,6 +64,7 @@
 - (void)dealloc
 {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	[self disconnectAll];
 }
 
 #pragma mark - NSObject
